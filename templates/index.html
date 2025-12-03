@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>File Upload Manager</title>
+  <style>
+    body{font-family: Inter, Arial; max-width:800px;margin:30px auto;padding:10px}
+    .file-list{margin-top:20px}
+    .flash{color:green}
+    button{margin-left:8px}
+  </style>
+</head>
+<body>
+  <h2>File Upload Manager</h2>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash">{{ messages[-1] }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+    <input id="fileInput" name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx" />
+    <button type="submit">Upload</button>
+  </form>
+
+  <div class="file-list">
+    <h3>Uploaded files</h3>
+    <ul>
+      {% for f in files %}
+      <li>
+        <a href="{{ url_for('uploaded_file', filename=f) }}">{{ f }}</a>
+        <form style="display:inline" method="post" action="{{ url_for('delete', filename=f) }}">
+          <button type="submit">Delete</button>
+        </form>
+      </li>
+      {% else %}
+      <li>No files</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <script>
+    // mobile bug fix: show filename on selection (helps some mobile browsers not showing chosen file)
+    document.getElementById('fileInput').addEventListener('change', function(e){
+      if(this.files && this.files.length){
+        let name = this.files[0].name;
+        let span = document.getElementById('chosen') || document.createElement('span');
+        span.id = 'chosen';
+        span.textContent = ' ' + name;
+        this.parentNode.insertBefore(span, this.nextSibling);
+      }
+    });
+  </script>
+</body>
+</html>
