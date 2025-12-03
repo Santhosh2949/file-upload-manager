@@ -1,55 +1,66 @@
-<!doctype html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>File Upload Manager</title>
-  <style>
-    body{font-family: Inter, Arial; max-width:800px;margin:30px auto;padding:10px}
-    .file-list{margin-top:20px}
-    .flash{color:green}
-    button{margin-left:8px}
-  </style>
-</head>
-<body>
-  <h2>File Upload Manager</h2>
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <div class="flash">{{ messages[-1] }}</div>
-    {% endif %}
-  {% endwith %}
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const uploadForm = document.getElementById('uploadForm');
+  const uploadBtn = uploadForm.querySelector('button[type="submit"]');
 
-  <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
-    <input id="fileInput" name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx" />
-    <button type="submit">Upload</button>
-  </form>
+  // Show chosen filename (mobile fix)
+  fileInput.addEventListener('change', function (e) {
+    if (this.files && this.files.length) {
+      let name = this.files[0].name;
+      let span = document.getElementById('chosen') || document.createElement('span');
+      span.id = 'chosen';
+      span.textContent = ' ' + name;
+      this.parentNode.insertBefore(span, this.nextSibling);
+      // enable button if it was disabled for some reason
+      uploadBtn.disabled = false;
+    }
+  });
 
-  <div class="file-list">
-    <h3>Uploaded files</h3>
-    <ul>
-      {% for f in files %}
-      <li>
-        <a href="{{ url_for('uploaded_file', filename=f) }}">{{ f }}</a>
-        <form style="display:inline" method="post" action="{{ url_for('delete', filename=f) }}">
-          <button type="submit">Delete</button>
-        </form>
-      </li>
-      {% else %}
-      <li>No files</li>
-      {% endfor %}
-    </ul>
-  </div>
+  // Prevent double submits and handle offline/failed uploads gracefully
+  uploadForm.addEventListener('submit', function (e) {
+    // if no file chosen, block submit
+    if (!fileInput.files || fileInput.files.length === 0) {
+      e.preventDefault();
+      alert('Please choose a file first.');
+      return;
+    }
 
-  <script>
-    // mobile bug fix: show filename on selection (helps some mobile browsers not showing chosen file)
-    document.getElementById('fileInput').addEventListener('change', function(e){
-      if(this.files && this.files.length){
-        let name = this.files[0].name;
-        let span = document.getElementById('chosen') || document.createElement('span');
-        span.id = 'chosen';
-        span.textContent = ' ' + name;
-        this.parentNode.insertBefore(span, this.nextSibling);
-      }
-    });
-  </script>
-</body>
-</html>
+    // If navigator reports offline, warn user immediately and block submit
+    if (!navigator.onLine) {
+      e.preventDefault();
+      alert('Your phone is offline. Connect to the same Wi-Fi as your PC (or turn on hotspot) to upload.');
+      return;
+    }
+
+    // disable submit to avoid double-clicks while request is in-flight
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading...';
+
+    // add a timeout fallback: if after 5s no page reload, re-enable so user can try again
+    window._uploadTimeout = setTimeout(() => {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Upload';
+      // keep UX clean: clear file input so mobile can choose same file again
+      try { fileInput.value = ''; } catch (err) {}
+      const chosen = document.getElementById('chosen');
+      if (chosen) chosen.remove();
+      alert('Upload seems to be taking too long — check your network and try again.');
+    }, 5000);
+  });
+
+  // When page loads (after a redirect from server), clear any pending timeout and reset form
+  window.addEventListener('load', function () {
+    if (window._uploadTimeout) {
+      clearTimeout(window._uploadTimeout);
+      window._uploadTimeout = null;
+    }
+    // reset form (clears file input so mobile filepicker works again)
+    if (uploadForm) uploadForm.reset();
+    const chosen = document.getElementById('chosen');
+    if (chosen) chosen.remove();
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Upload';
+    }
+  });
+</script>
